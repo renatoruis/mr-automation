@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# KONG MR Generator — entry único (mesma URL em todos os SO).
+#
+# macOS / Linux / Git Bash:
+#   curl -fsSL <RAW_BASE>/run | bash
+#
+# Windows (PowerShell) — mesma URL, extrai a seção PS automaticamente:
+#   iex ((irm <RAW_BASE>/run) -split '___KONG_MR_PS___')[1]
+#
+# run.sh / run.ps1 continuam disponíveis para uso direto.
+set -euo pipefail
+
+RAW_BASE="${KONG_MR_RAW_BASE:-https://mr.timdevops.com.br}"
+RAW_BASE="${RAW_BASE%/}"
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+
+if [[ -f ./run.sh ]]; then
+  exec bash ./run.sh
+fi
+if [[ -n "${SCRIPT_DIR}" && -f "${SCRIPT_DIR}/run.sh" ]]; then
+  exec bash "${SCRIPT_DIR}/run.sh"
+fi
+
+exec bash -c "$(curl -fsSL "${RAW_BASE}/run.sh")"
+
+exit 0
+___KONG_MR_PS___
+# ===== PowerShell (Windows) =====
+$ErrorActionPreference = "Stop"
+$RawBase = if ($env:KONG_MR_RAW_BASE) {
+    $env:KONG_MR_RAW_BASE.TrimEnd("/")
+} else {
+    "https://mr.timdevops.com.br"
+}
+if (Test-Path -LiteralPath ".\run.ps1") {
+    Write-Host "[KONG MR] Usando run.ps1 local"
+    & ".\run.ps1"
+    exit $LASTEXITCODE
+}
+Write-Host "[KONG MR] Baixando bootstrap Windows..."
+Invoke-Expression (Invoke-WebRequest -Uri "$RawBase/run.ps1" -UseBasicParsing).Content

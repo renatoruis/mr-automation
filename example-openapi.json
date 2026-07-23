@@ -1,0 +1,26 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MB.API.Exemplo.Recurso",
+    "version": "1.0.0",
+    "description": "Exemplo mínimo de OpenAPI 3 para o KONG MR Generator CLI"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/exemplo"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}
