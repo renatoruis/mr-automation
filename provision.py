@@ -79,6 +79,107 @@ PRESET_OPTIONS: list[tuple[str, str]] = [
     ("wsdl-proxy", "wsdl-proxy — Serviço SOAP legado"),
 ]
 
+# ANSI (PowerShell 7+ / Windows Terminal / macOS / Linux). Desliga com NO_COLOR=1.
+_S_RESET = "\033[0m"
+_S_BOLD = "\033[1m"
+_S_DIM = "\033[2m"
+_S_CYAN = "\033[36m"
+_S_GREEN = "\033[32m"
+_S_YELLOW = "\033[33m"
+_S_RED = "\033[31m"
+_S_BLUE = "\033[94m"
+_S_MAGENTA = "\033[35m"
+_COLOR_ENABLED = False
+
+
+# ---------------------------------------------------------------------------
+# Terminal UI
+# ---------------------------------------------------------------------------
+
+
+def _enable_windows_ansi() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        handle = ctypes.windll.kernel32.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if ctypes.windll.kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            ctypes.windll.kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+    except Exception:
+        pass
+
+
+def init_ui() -> None:
+    global _COLOR_ENABLED
+    _enable_windows_ansi()
+    no_color = bool(os.environ.get("NO_COLOR", "").strip())
+    _COLOR_ENABLED = (
+        not no_color
+        and os.environ.get("TERM", "") != "dumb"
+        and sys.stdout.isatty()
+    )
+
+
+def paint(text: str, *styles: str) -> str:
+    if not _COLOR_ENABLED or not styles:
+        return text
+    return f"{''.join(styles)}{text}{_S_RESET}"
+
+
+def clear_screen() -> None:
+    if not sys.stdout.isatty():
+        return
+    print("\033[2J\033[H", end="", flush=True)
+
+
+def ui_blank(lines: int = 1) -> None:
+    print("\n" * max(lines, 0), end="")
+
+
+def ui_banner() -> None:
+    clear_screen()
+    ui_blank(1)
+    print(paint(f"  {APP_NAME}", _S_BOLD, _S_CYAN))
+    print(paint("  OpenAPI → GitOps → Merge Request", _S_DIM))
+    print(paint("  " + "─" * 44, _S_DIM))
+    ui_blank(1)
+
+
+def ui_step(title: str) -> None:
+    """Limpa a tela e mostra o cabeçalho do passo atual do wizard."""
+    clear_screen()
+    ui_blank(1)
+    print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
+    print(paint(f"  › {title}", _S_BOLD, _S_BLUE))
+    print(paint("  " + "─" * 44, _S_DIM))
+    ui_blank(1)
+
+
+def ui_info(message: str) -> None:
+    print(paint("  › ", _S_CYAN) + message)
+
+
+def ui_ok(message: str) -> None:
+    print(paint("  ✓ ", _S_GREEN, _S_BOLD) + message)
+
+
+def ui_warn(message: str) -> None:
+    print(paint("  ! ", _S_YELLOW, _S_BOLD) + message)
+
+
+def ui_err(message: str) -> None:
+    print(paint("  ✗ ", _S_RED, _S_BOLD) + message, file=sys.stderr)
+
+
+def ui_muted(message: str) -> None:
+    print(paint(f"  {message}", _S_DIM))
+
+
+def ui_prompt(label: str) -> str:
+    return input(paint(f"  {label}", _S_BOLD, _S_CYAN) + " ")
+
 
 # ---------------------------------------------------------------------------
 # Config / wizard
@@ -165,20 +266,21 @@ def ensure_pat() -> str:
         if stored:
             return stored
 
-    print(f"{APP_NAME} — configuração inicial")
-    print("É necessário um Personal Access Token do Azure DevOps")
-    print("(scopes: Code Read & Write e Pull Request Read & Write).")
-    print()
+    ui_step("Personal Access Token")
+    ui_info("É necessário um PAT do Azure DevOps")
+    ui_muted("Scopes: Code Read & Write · Pull Request Read & Write")
+    ui_blank(1)
     try:
-        pat = getpass.getpass("ADO PAT: ").strip()
+        pat = getpass.getpass("  ADO PAT: ").strip()
     except (EOFError, KeyboardInterrupt) as exc:
         raise SystemExit("Cancelado.") from exc
     if not pat:
         raise SystemExit("Erro: PAT vazio.")
 
     saved = save_credentials(pat=pat)
-    print(f"Credenciais salvas em: {saved}")
-    print()
+    ui_blank(1)
+    ui_ok(f"Credenciais salvas em {saved}")
+    ui_blank(1)
     return pat
 
 
@@ -213,16 +315,19 @@ def ensure_repo() -> dict[str, str]:
     stored = _stored_repo_url()
     if stored:
         parsed = parse_ado_git_url(stored)
-        print(f"Repositório GitOps: {parsed['repo_url']}")
-        keep = input("Usar este repositório? [Y/n] ").strip().lower()
+        ui_step("Repositório GitOps")
+        ui_info(parsed["repo_url"])
+        ui_blank(1)
+        keep = ui_prompt("Usar este repositório? [Y/n]").strip().lower()
         if keep in ("", "y", "yes", "s", "sim"):
             return parsed
-        print()
 
-    print("URL do repositório GitOps no Azure DevOps")
-    print("(ex.: https://dev.azure.com/{org}/{project}/_git/{repo})")
+    ui_step("Repositório GitOps")
+    ui_info("Cole a URL do repositório no Azure DevOps")
+    ui_muted("ex.: https://dev.azure.com/{org}/{project}/_git/{repo}")
+    ui_blank(1)
     try:
-        typed = input("URL: ").strip()
+        typed = ui_prompt("URL:").strip()
     except (EOFError, KeyboardInterrupt) as exc:
         raise SystemExit("Cancelado.") from exc
     if not typed:
@@ -230,8 +335,9 @@ def ensure_repo() -> dict[str, str]:
 
     parsed = parse_ado_git_url(typed)
     saved = save_credentials(repo_url=parsed["repo_url"])
-    print(f"URL do repositório salva em: {saved}")
-    print()
+    ui_blank(1)
+    ui_ok(f"URL salva em {saved}")
+    ui_blank(1)
     return parsed
 
 
@@ -265,11 +371,12 @@ def discover_openapi_json(cwd: Path | None = None) -> str:
     if len(candidates) == 1:
         return str(candidates[0].resolve())
 
-    print()
+    ui_step("Arquivo OpenAPI")
     chosen = prompt_choice(
         "Vários arquivos OpenAPI 3 encontrados — qual usar?",
         [(str(p.resolve()), p.name) for p in candidates],
         default_index=0,
+        clear=False,
     )
     return chosen
 
@@ -279,6 +386,8 @@ def prompt_choice(
     options: list[tuple[str, str]],
     *,
     default_index: int = 0,
+    clear: bool = True,
+    step_title: str | None = None,
 ) -> str:
     """Menu numerado (dropdown de terminal — funciona em bash e PowerShell)."""
     if not options:
@@ -286,17 +395,24 @@ def prompt_choice(
     if not (0 <= default_index < len(options)):
         default_index = 0
 
-    print(title)
+    if clear:
+        ui_step(step_title or title)
+    print(paint(f"  {title}", _S_BOLD))
+    ui_blank(1)
     for i, (_value, label) in enumerate(options, start=1):
-        suffix = "  [default]" if i - 1 == default_index else ""
-        print(f"  {i}) {label}{suffix}")
+        marker = paint("  ● ", _S_GREEN) if i - 1 == default_index else paint("  ○ ", _S_DIM)
+        suffix = paint("  ← default", _S_DIM, _S_GREEN) if i - 1 == default_index else ""
+        num = paint(f"{i})", _S_BOLD, _S_CYAN)
+        print(f"{marker}{num}  {label}{suffix}")
+    ui_blank(1)
     while True:
-        raw = input(f"Escolha [1-{len(options)}] [{default_index + 1}]: ").strip()
+        raw = ui_prompt(f"Escolha [1-{len(options)}] [{default_index + 1}]:").strip()
         if not raw:
             return options[default_index][0]
         if raw.isdigit() and 1 <= int(raw) <= len(options):
             return options[int(raw) - 1][0]
-        print("Opção inválida.")
+        ui_warn("Opção inválida — tente de novo.")
+        ui_blank(1)
 
 
 def prompt_environment() -> str:
@@ -304,24 +420,28 @@ def prompt_environment() -> str:
     forced = env("ENVIRONMENT").lower()
     if forced in VALID_ENVS:
         return forced
-    print()
-    return prompt_choice("Em qual ambiente?", ENV_OPTIONS, default_index=0)
+    return prompt_choice(
+        "Em qual ambiente esta API vai rodar?",
+        ENV_OPTIONS,
+        default_index=0,
+        step_title="Ambiente",
+    )
 
 
 def prompt_preset() -> str:
     forced = env("PRESET")
     if forced in VALID_PRESETS:
         return forced
-    print()
     default_index = (
         VALID_PRESETS.index(DEFAULT_PRESET)
         if DEFAULT_PRESET in VALID_PRESETS
         else 0
     )
     return prompt_choice(
-        "Que tipo de API é? (preset)",
+        "Que tipo de API é? (preset Kong)",
         PRESET_OPTIONS,
         default_index=default_index,
+        step_title="Preset",
     )
 
 
@@ -348,37 +468,51 @@ def prompt_server_url(spec: dict[str, Any]) -> str:
     if existing:
         options.append(("__empty__", "Sem upstream (deixar vazio)"))
 
-    print()
     choice = prompt_choice(
         "Qual é o endereço do serviço backend (server URL)?",
         options,
         default_index=0,
+        step_title="Server URL",
     )
     if choice == "__empty__":
         return ""
     if choice == "__custom__":
+        ui_blank(1)
         while True:
-            typed = input("URL do server: ").strip().rstrip("/")
+            typed = ui_prompt("URL do server:").strip().rstrip("/")
             if typed:
                 return typed
-            print("URL vazia. Informe um endereço ou volte e escolha outra opção.")
+            ui_warn("URL vazia — informe um endereço.")
+            ui_blank(1)
     return choice
 
 
 def prompt_tags(suggested: list[str]) -> list[str]:
     """Confirma tags com menu (manter / adicionar / remover / substituir)."""
     tags = normalize_tags(list(suggested))
+    first = True
     while True:
-        print()
-        print("Tags da API no Kong:")
+        if first:
+            ui_step("Tags")
+            first = False
+        else:
+            clear_screen()
+            ui_blank(1)
+            print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
+            print(paint("  Tags", _S_BOLD, _S_BLUE))
+            print(paint("  " + "─" * 44, _S_DIM))
+            ui_blank(1)
+
+        print(paint("  Tags da API no Kong", _S_BOLD))
+        ui_blank(1)
         if tags:
             for i, tag in enumerate(tags, start=1):
-                print(f"  {i}) {tag}")
+                print(paint(f"    {i}. ", _S_DIM) + paint(tag, _S_MAGENTA))
         else:
-            print("  (nenhuma)")
-        print()
+            ui_muted("(nenhuma)")
+        ui_blank(1)
         action = prompt_choice(
-            "Confirme as tags da API no Kong",
+            "O que deseja fazer com as tags?",
             [
                 ("keep", "Manter estas tags"),
                 ("add", "Adicionar tag"),
@@ -386,18 +520,20 @@ def prompt_tags(suggested: list[str]) -> list[str]:
                 ("replace", "Substituir todas (separadas por vírgula)"),
             ],
             default_index=0,
+            clear=False,
         )
         if action == "keep":
             return normalize_tags(tags)
         if action == "add":
-            new_tag = input("Nova tag: ").strip()
+            ui_blank(1)
+            new_tag = ui_prompt("Nova tag:").strip()
             if new_tag:
                 tags = normalize_tags([*tags, new_tag])
             else:
-                print("Tag vazia — ignorada.")
+                ui_warn("Tag vazia — ignorada.")
         elif action == "remove":
             if not tags:
-                print("Não há tags para remover.")
+                ui_warn("Não há tags para remover.")
                 continue
             remove_opts = [(t, t) for t in tags]
             remove_opts.append(("__cancel__", "Cancelar"))
@@ -405,11 +541,13 @@ def prompt_tags(suggested: list[str]) -> list[str]:
                 "Qual tag remover?",
                 remove_opts,
                 default_index=len(remove_opts) - 1,
+                clear=False,
             )
             if picked != "__cancel__":
                 tags = [t for t in tags if t != picked]
         elif action == "replace":
-            raw = input("Tags (separadas por vírgula): ").strip()
+            ui_blank(1)
+            raw = ui_prompt("Tags (separadas por vírgula):").strip()
             tags = normalize_tags(
                 [part.strip() for part in raw.split(",") if part.strip()]
             )
@@ -914,13 +1052,13 @@ def provision_via_ado(
     commit_message = f"feat(kong): provision {kong_name} in {environment}"
     pr_title = f"{MR_TITLE_PREFIX} Provision {kong_name} ({environment})"
 
-    print(f"Consultando tip de {cfg['target_branch']}...")
+    ui_info(f"Consultando tip de {cfg['target_branch']}...")
     tip = get_branch_tip(cfg, cfg["target_branch"])
 
-    print("Verificando se a API já existe...")
+    ui_info("Verificando se a API já existe...")
     assert_api_not_exists(cfg, kong_name)
 
-    print(f"Criando branch {branch} e enviando ficheiros (sem clone)...")
+    ui_info(f"Criando branch {paint(branch, _S_BOLD)} e enviando ficheiros...")
     push_new_branch_with_files(
         cfg,
         branch=branch,
@@ -946,7 +1084,7 @@ def provision_via_ado(
         ]
     )
 
-    print("Abrindo MR...")
+    ui_info("Abrindo MR...")
     pr = create_pull_request(
         cfg,
         source_branch=branch,
@@ -967,9 +1105,20 @@ def provision_via_ado(
 # ---------------------------------------------------------------------------
 
 
+def pause_before_exit() -> None:
+    """Evita fechar a janela do terminal antes de o usuário ler a URL do MR."""
+    if not sys.stdin.isatty():
+        return
+    try:
+        ui_blank(1)
+        input(paint("  Pressione Enter para sair...", _S_DIM))
+    except EOFError:
+        pass
+
+
 def main() -> None:
-    print(f"=== {APP_NAME} ===")
-    print()
+    init_ui()
+    ui_banner()
 
     pat = ensure_pat()
     repo = ensure_repo()
@@ -1007,24 +1156,42 @@ def main() -> None:
         preset=cfg["preset"],
     )
 
-    print()
-    print("--- Resumo ---")
-    print(f"Repositório: {cfg['repo_url']}")
-    print(f"OpenAPI:     {cfg['openapi_file']}")
-    print(f"API:         {kong_name}")
-    print(f"Ambiente:    {cfg['environment']}")
-    print(f"Preset:      {cfg['preset']}")
-    print(f"Upstream:    {server_url or '(não definido)'}")
-    print(f"Tags:        {', '.join(tags)}")
-    print(f"Arquivos:    apis/{cfg['environment']}/{kong_name}.yaml")
-    print(f"             apis/{cfg['environment']}/{kong_name}.config.yaml")
-    print()
-    answer = input("Abrir MR no Azure DevOps? [y/N] ").strip().lower()
+    ui_step("Resumo")
+    rows = [
+        ("Repositório", cfg["repo_url"]),
+        ("OpenAPI", cfg["openapi_file"]),
+        ("API", kong_name),
+        ("Ambiente", cfg["environment"]),
+        ("Preset", cfg["preset"]),
+        ("Upstream", server_url or "(não definido)"),
+        ("Tags", ", ".join(tags)),
+        (
+            "Arquivos",
+            f"apis/{cfg['environment']}/{kong_name}.yaml",
+        ),
+        ("", f"apis/{cfg['environment']}/{kong_name}.config.yaml"),
+    ]
+    for label, value in rows:
+        if label:
+            valued = (
+                paint(value, _S_BOLD, _S_GREEN)
+                if label in ("API", "Ambiente")
+                else value
+            )
+            print(paint(f"  {label + ':':<14}", _S_DIM) + valued)
+        else:
+            print(paint(f"  {'':<14}{value}", _S_DIM))
+    ui_blank(2)
+    answer = ui_prompt("Abrir MR no Azure DevOps? [y/N]").strip().lower()
     if answer not in ("y", "yes", "s", "sim"):
-        print("Cancelado.")
+        ui_blank(1)
+        ui_warn("Cancelado.")
+        pause_before_exit()
         sys.exit(0)
 
-    print("Provisionando via Azure DevOps (sem clone local)...")
+    ui_blank(1)
+    ui_info("Provisionando via Azure DevOps (sem clone local)...")
+    ui_blank(1)
 
     result = provision_via_ado(
         cfg,
@@ -1034,22 +1201,34 @@ def main() -> None:
         openapi_source=str(Path(cfg["openapi_file"]).expanduser().resolve()),
     )
 
-    print()
-    print("MR criado com sucesso.")
-    print(f"Branch:  {result['branch_name']}")
-    print(f"Commit:  {result['commit_message']}")
-    print(f"PR ID:   {result['pull_request_id']}")
-    print(f"URL:     {result['pull_request_url']}")
+    clear_screen()
+    ui_blank(1)
+    print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
+    print(paint("  ✓  MR criado com sucesso", _S_BOLD, _S_GREEN))
+    print(paint("  " + "─" * 44, _S_DIM))
+    ui_blank(1)
+    print(paint("  Branch:  ", _S_DIM) + result["branch_name"])
+    print(paint("  Commit:  ", _S_DIM) + result["commit_message"])
+    print(paint("  PR ID:   ", _S_DIM) + str(result["pull_request_id"]))
+    ui_blank(1)
+    print(paint("  URL do Merge Request:", _S_BOLD))
+    ui_blank(1)
+    print(paint(f"  {result['pull_request_url']}", _S_BOLD, _S_CYAN))
+    ui_blank(1)
+    pause_before_exit()
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\nCancelado.", file=sys.stderr)
+        print()
+        ui_warn("Cancelado.")
+        pause_before_exit()
         sys.exit(130)
     except SystemExit:
         raise
     except Exception as exc:
-        print(f"Erro: {exc}", file=sys.stderr)
+        ui_err(str(exc))
+        pause_before_exit()
         sys.exit(1)

@@ -145,4 +145,8 @@ Ensure-Deps -PythonExe $python
 $script = Get-ProvisionScript
 Write-Info "Iniciando wizard..."
 & $python $script
-exit $LASTEXITCODE
+$code = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+# exit 0 fecha a janela quando o bootstrap corre via irm|iex
+if ($code -ne 0) {
+    exit $code
+}
