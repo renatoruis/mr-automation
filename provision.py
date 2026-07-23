@@ -5,7 +5,7 @@ KONG MR Generator CLI — wizard que provisiona API num repositório GitOps via 
 Uso (wizard — caminho feliz):
   1. Coloque o OpenAPI 3 (.json) na pasta atual
   2. Execute o bootstrap OU: python provision.py
-       Windows:  iex ((irm https://mr.timdevops.com.br/run) -split '___KONG_MR_PS___')[1]
+       Windows:  irm https://mr.timdevops.com.br | iex
        mac/linux: curl -fsSL https://mr.timdevops.com.br/run | bash
 
   Na 1ª execução pede ADO PAT + URL do repositório GitOps e salva em:

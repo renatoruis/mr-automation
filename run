@@ -4,10 +4,8 @@
 # macOS / Linux / Git Bash:
 #   curl -fsSL <RAW_BASE>/run | bash
 #
-# Windows (PowerShell) — mesma URL, extrai a seção PS automaticamente:
-#   iex ((irm <RAW_BASE>/run) -split '___KONG_MR_PS___')[1]
-#
-# run.sh / run.ps1 continuam disponíveis para uso direto.
+# Windows (PowerShell) — raiz do domínio:
+#   irm https://mr.timdevops.com.br | iex
 set -euo pipefail
 
 RAW_BASE="${KONG_MR_RAW_BASE:-https://mr.timdevops.com.br}"

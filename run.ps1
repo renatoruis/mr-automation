@@ -5,10 +5,8 @@
 
 .DESCRIPTION
   Garante Python 3, instala deps pip, baixa provision.py e corre no cwd atual.
-  Preferir entry único (mesma URL em todos os SO):
-    iex ((irm https://mr.timdevops.com.br/run) -split '___KONG_MR_PS___')[1]
-  Direto:
-    irm https://mr.timdevops.com.br/run.ps1 | iex
+  Uso:
+    irm https://mr.timdevops.com.br | iex
 
   Variáveis opcionais:
     $env:KONG_MR_RAW_BASE       — URL base (sem barra final); default https://mr.timdevops.com.br

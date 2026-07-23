@@ -9,16 +9,12 @@ Interface em **pt-BR**.
 ## Uso rápido
 
 1. Coloque o OpenAPI **3.x** (`.json`) na pasta da API.
-2. Na mesma pasta, execute com a **mesma URL** (sem `.ps1` / `.sh` — o SO/shell escolhe o bootstrap):
-
-```text
-https://mr.timdevops.com.br/run
-```
+2. Na mesma pasta, execute:
 
 **Windows (PowerShell)**
 
 ```powershell
-iex ((irm https://mr.timdevops.com.br/run) -split '___KONG_MR_PS___')[1]
+irm https://mr.timdevops.com.br | iex
 ```
 
 **macOS / Linux / Git Bash**
@@ -28,9 +24,7 @@ curl -fsSL https://mr.timdevops.com.br/run | bash
 ```
 
 > Hospedado via **GitHub Pages** + DNS Cloudflare (`CNAME` → `mr.timdevops.com.br`).  
-> Atalhos: `https://mr.timdevops.com.br/run.ps1` / `run.sh`.
->
-> Após o primeiro `git push` para o repositório público: Settings → Pages → branch `master` (raiz), custom domain `mr.timdevops.com.br`, Enforce HTTPS.
+> Após o primeiro `git push`: Settings → Pages → branch `master` (raiz), custom domain `mr.timdevops.com.br`, Enforce HTTPS.
 
 O bootstrap:
 
