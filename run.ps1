@@ -144,6 +144,13 @@ $python = Ensure-Python
 Ensure-Deps -PythonExe $python
 $script = Get-ProvisionScript
 Write-Info "Iniciando wizard..."
+# Evita UnicodeEncodeError / janela a fechar em consoles Windows cp1252
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
 & $python $script
 $code = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
 # exit 0 fecha a janela quando o bootstrap corre via irm|iex

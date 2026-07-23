@@ -68,16 +68,17 @@ DEFAULT_GIT_USER_NAME = "KONG MR Generator Bot"
 DEFAULT_GIT_USER_EMAIL = "kong-mr-generator@users.noreply.github.com"
 
 ENV_OPTIONS: list[tuple[str, str]] = [
-    ("dev", "dev — Desenvolvimento"),
-    ("hml", "hml — Homologação"),
-    ("prd", "prd — Produção"),
+    ("dev", "dev - Desenvolvimento"),
+    ("hml", "hml - Homologacao"),
+    ("prd", "prd - Producao"),
 ]
 PRESET_OPTIONS: list[tuple[str, str]] = [
-    ("legacy-api", "legacy-api — API REST normal (maioria dos casos)"),
-    ("standard-api", "standard-api — API com limites e CORS"),
-    ("auth-api", "auth-api — API com login JWT"),
-    ("wsdl-proxy", "wsdl-proxy — Serviço SOAP legado"),
+    ("legacy-api", "legacy-api - API REST normal (maioria dos casos)"),
+    ("standard-api", "standard-api - API com limites e CORS"),
+    ("auth-api", "auth-api - API com login JWT"),
+    ("wsdl-proxy", "wsdl-proxy - Servico SOAP legado"),
 ]
+# Nota: labels sem acentos/em-dash para consoles Windows cp1252 (evita fechar o host).
 
 # ANSI (PowerShell 7+ / Windows Terminal / macOS / Linux). Desliga com NO_COLOR=1.
 _S_RESET = "\033[0m"
@@ -114,6 +115,12 @@ def _enable_windows_ansi() -> None:
 def init_ui() -> None:
     global _COLOR_ENABLED
     _enable_windows_ansi()
+    # Windows legado (cp1252) quebra com Unicode; força UTF-8 quando possível.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except Exception:
+            pass
     no_color = bool(os.environ.get("NO_COLOR", "").strip())
     _COLOR_ENABLED = (
         not no_color
@@ -142,8 +149,8 @@ def ui_banner() -> None:
     clear_screen()
     ui_blank(1)
     print(paint(f"  {APP_NAME}", _S_BOLD, _S_CYAN))
-    print(paint("  OpenAPI → GitOps → Merge Request", _S_DIM))
-    print(paint("  " + "─" * 44, _S_DIM))
+    print(paint("  OpenAPI -> GitOps -> Merge Request", _S_DIM))
+    print(paint("  " + ("-" * 44), _S_DIM))
     ui_blank(1)
 
 
@@ -152,17 +159,17 @@ def ui_step(title: str) -> None:
     clear_screen()
     ui_blank(1)
     print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
-    print(paint(f"  › {title}", _S_BOLD, _S_BLUE))
-    print(paint("  " + "─" * 44, _S_DIM))
+    print(paint(f"  > {title}", _S_BOLD, _S_BLUE))
+    print(paint("  " + ("-" * 44), _S_DIM))
     ui_blank(1)
 
 
 def ui_info(message: str) -> None:
-    print(paint("  › ", _S_CYAN) + message)
+    print(paint("  > ", _S_CYAN) + message)
 
 
 def ui_ok(message: str) -> None:
-    print(paint("  ✓ ", _S_GREEN, _S_BOLD) + message)
+    print(paint("  * ", _S_GREEN, _S_BOLD) + message)
 
 
 def ui_warn(message: str) -> None:
@@ -170,7 +177,7 @@ def ui_warn(message: str) -> None:
 
 
 def ui_err(message: str) -> None:
-    print(paint("  ✗ ", _S_RED, _S_BOLD) + message, file=sys.stderr)
+    print(paint("  x ", _S_RED, _S_BOLD) + message, file=sys.stderr)
 
 
 def ui_muted(message: str) -> None:
@@ -179,6 +186,27 @@ def ui_muted(message: str) -> None:
 
 def ui_prompt(label: str) -> str:
     return input(paint(f"  {label}", _S_BOLD, _S_CYAN) + " ")
+
+
+def pause_before_exit() -> None:
+    """Evita fechar a janela do terminal antes de o usuário ler a mensagem/URL."""
+    if not sys.stdin.isatty():
+        return
+    try:
+        ui_blank(1)
+        input(paint("  Pressione Enter para sair...", _S_DIM))
+    except EOFError:
+        pass
+
+
+def die(message: str, code: int = 1) -> None:
+    """Erro fatal (a pausa fica no handler de SystemExit em __main__)."""
+    try:
+        ui_blank(1)
+        ui_err(message)
+    except Exception:
+        print(message, file=sys.stderr)
+    raise SystemExit(code)
 
 
 # ---------------------------------------------------------------------------
@@ -268,7 +296,7 @@ def ensure_pat() -> str:
 
     ui_step("Personal Access Token")
     ui_info("É necessário um PAT do Azure DevOps")
-    ui_muted("Scopes: Code Read & Write · Pull Request Read & Write")
+    ui_muted("Scopes: Code Read & Write + Pull Request Read & Write")
     ui_blank(1)
     try:
         pat = getpass.getpass("  ADO PAT: ").strip()
@@ -364,16 +392,16 @@ def discover_openapi_json(cwd: Path | None = None) -> str:
         if p.is_file() and _looks_like_openapi3_json(p)
     )
     if not candidates:
-        raise SystemExit(
+        die(
             f"Erro: nenhum OpenAPI 3 (.json) encontrado em {root}.\n"
-            "Coloque o arquivo OpenAPI na pasta atual e execute novamente."
+            "  Coloque o arquivo OpenAPI na pasta atual e execute novamente."
         )
     if len(candidates) == 1:
         return str(candidates[0].resolve())
 
     ui_step("Arquivo OpenAPI")
     chosen = prompt_choice(
-        "Vários arquivos OpenAPI 3 encontrados — qual usar?",
+        "Varios arquivos OpenAPI 3 encontrados - qual usar?",
         [(str(p.resolve()), p.name) for p in candidates],
         default_index=0,
         clear=False,
@@ -400,8 +428,14 @@ def prompt_choice(
     print(paint(f"  {title}", _S_BOLD))
     ui_blank(1)
     for i, (_value, label) in enumerate(options, start=1):
-        marker = paint("  ● ", _S_GREEN) if i - 1 == default_index else paint("  ○ ", _S_DIM)
-        suffix = paint("  ← default", _S_DIM, _S_GREEN) if i - 1 == default_index else ""
+        marker = (
+            paint("  * ", _S_GREEN)
+            if i - 1 == default_index
+            else paint("  - ", _S_DIM)
+        )
+        suffix = (
+            paint("  <- default", _S_DIM, _S_GREEN) if i - 1 == default_index else ""
+        )
         num = paint(f"{i})", _S_BOLD, _S_CYAN)
         print(f"{marker}{num}  {label}{suffix}")
     ui_blank(1)
@@ -411,7 +445,7 @@ def prompt_choice(
             return options[default_index][0]
         if raw.isdigit() and 1 <= int(raw) <= len(options):
             return options[int(raw) - 1][0]
-        ui_warn("Opção inválida — tente de novo.")
+        ui_warn("Opcao invalida - tente de novo.")
         ui_blank(1)
 
 
@@ -482,7 +516,7 @@ def prompt_server_url(spec: dict[str, Any]) -> str:
             typed = ui_prompt("URL do server:").strip().rstrip("/")
             if typed:
                 return typed
-            ui_warn("URL vazia — informe um endereço.")
+            ui_warn("URL vazia - informe um endereco.")
             ui_blank(1)
     return choice
 
@@ -500,7 +534,7 @@ def prompt_tags(suggested: list[str]) -> list[str]:
             ui_blank(1)
             print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
             print(paint("  Tags", _S_BOLD, _S_BLUE))
-            print(paint("  " + "─" * 44, _S_DIM))
+            print(paint("  " + ("-" * 44), _S_DIM))
             ui_blank(1)
 
         print(paint("  Tags da API no Kong", _S_BOLD))
@@ -530,7 +564,7 @@ def prompt_tags(suggested: list[str]) -> list[str]:
             if new_tag:
                 tags = normalize_tags([*tags, new_tag])
             else:
-                ui_warn("Tag vazia — ignorada.")
+                ui_warn("Tag vazia - ignorada.")
         elif action == "remove":
             if not tags:
                 ui_warn("Não há tags para remover.")
@@ -1105,17 +1139,6 @@ def provision_via_ado(
 # ---------------------------------------------------------------------------
 
 
-def pause_before_exit() -> None:
-    """Evita fechar a janela do terminal antes de o usuário ler a URL do MR."""
-    if not sys.stdin.isatty():
-        return
-    try:
-        ui_blank(1)
-        input(paint("  Pressione Enter para sair...", _S_DIM))
-    except EOFError:
-        pass
-
-
 def main() -> None:
     init_ui()
     ui_banner()
@@ -1204,8 +1227,8 @@ def main() -> None:
     clear_screen()
     ui_blank(1)
     print(paint(f"  {APP_NAME}", _S_DIM, _S_CYAN))
-    print(paint("  ✓  MR criado com sucesso", _S_BOLD, _S_GREEN))
-    print(paint("  " + "─" * 44, _S_DIM))
+    print(paint("  *  MR criado com sucesso", _S_BOLD, _S_GREEN))
+    print(paint("  " + ("-" * 44), _S_DIM))
     ui_blank(1)
     print(paint("  Branch:  ", _S_DIM) + result["branch_name"])
     print(paint("  Commit:  ", _S_DIM) + result["commit_message"])
@@ -1226,9 +1249,24 @@ if __name__ == "__main__":
         ui_warn("Cancelado.")
         pause_before_exit()
         sys.exit(130)
-    except SystemExit:
+    except SystemExit as exc:
+        code = exc.code
+        if code in (0, None):
+            raise
+        # die() já pausou; sys.exit(n) / SystemExit(str) ainda sem pausa
+        if isinstance(code, str):
+            try:
+                ui_err(code)
+            except Exception:
+                print(code, file=sys.stderr)
+            pause_before_exit()
+            sys.exit(1)
+        pause_before_exit()
         raise
     except Exception as exc:
-        ui_err(str(exc))
+        try:
+            ui_err(str(exc))
+        except Exception:
+            print(f"Erro: {exc}", file=sys.stderr)
         pause_before_exit()
         sys.exit(1)
