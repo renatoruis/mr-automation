@@ -23,8 +23,15 @@ irm https://mr.timdevops.com.br | iex
 curl -fsSL https://mr.timdevops.com.br/run | bash
 ```
 
-> Hospedado via **GitHub Pages** + DNS Cloudflare (`CNAME` → `mr.timdevops.com.br`).  
-> Após o primeiro `git push`: Settings → Pages → branch `master` (raiz), custom domain `mr.timdevops.com.br`, Enforce HTTPS.
+> **Cloudflare (obrigatório para o `irm … | iex`):** o GitHub Pages serve a raiz como `text/html` / `.ps1` como `octet-stream`, e o PowerShell devolve `Byte[]` (o `iex` falha). No painel Cloudflare do domínio → **Rules → Redirect Rules** → Create:
+>
+> - Expression: `(http.host eq "mr.timdevops.com.br" and http.request.uri.path eq "/")`
+> - Target: `https://raw.githubusercontent.com/renatoruis/mr-automation/master/run.ps1`
+> - Status: `302`
+>
+> Opcional (mesmo target): path `eq "/run.ps1"`.
+>
+> Scripts (`provision.py`, etc.) são lidos de `raw.githubusercontent.com` (`text/plain`). Pages continua a servir `/run` e `/run.sh` para Unix.
 
 O bootstrap:
 

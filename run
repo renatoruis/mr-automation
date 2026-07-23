@@ -8,7 +8,7 @@
 #   irm https://mr.timdevops.com.br | iex
 set -euo pipefail
 
-RAW_BASE="${KONG_MR_RAW_BASE:-https://mr.timdevops.com.br}"
+RAW_BASE="${KONG_MR_RAW_BASE:-https://raw.githubusercontent.com/renatoruis/mr-automation/master}"
 RAW_BASE="${RAW_BASE%/}"
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
@@ -29,7 +29,7 @@ $ErrorActionPreference = "Stop"
 $RawBase = if ($env:KONG_MR_RAW_BASE) {
     $env:KONG_MR_RAW_BASE.TrimEnd("/")
 } else {
-    "https://mr.timdevops.com.br"
+    "https://raw.githubusercontent.com/renatoruis/mr-automation/master"
 }
 if (Test-Path -LiteralPath ".\run.ps1") {
     Write-Host "[KONG MR] Usando run.ps1 local"

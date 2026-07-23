@@ -1,16 +1,5 @@
 #Requires -Version 5.1
 # KONG MR Generator — Windows:
 #   irm https://mr.timdevops.com.br | iex
-# macOS / Linux:
-#   curl -fsSL https://mr.timdevops.com.br/run | bash
-$ErrorActionPreference = "Stop"
-$RawBase = if ($env:KONG_MR_RAW_BASE) {
-    $env:KONG_MR_RAW_BASE.TrimEnd("/")
-} else {
-    "https://mr.timdevops.com.br"
-}
-if (Test-Path -LiteralPath ".\run.ps1") {
-    & ".\run.ps1"
-    exit $LASTEXITCODE
-}
-Invoke-Expression (Invoke-WebRequest -Uri "$RawBase/run.ps1" -UseBasicParsing).Content
+# (a raiz deve responder text/plain; ver README / Cloudflare Redirect)
+iex (irm "https://raw.githubusercontent.com/renatoruis/mr-automation/master/run.ps1")

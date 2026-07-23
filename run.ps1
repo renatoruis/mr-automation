@@ -9,16 +9,17 @@
     irm https://mr.timdevops.com.br | iex
 
   Variáveis opcionais:
-    $env:KONG_MR_RAW_BASE       — URL base (sem barra final); default https://mr.timdevops.com.br
+    $env:KONG_MR_RAW_BASE       — URL base dos ficheiros; default = raw.githubusercontent.com/.../master
     $env:KONG_MR_FORCE_DOWNLOAD — se "1", ignora .\provision.py e baixa da URL
 #>
 
 $ErrorActionPreference = "Stop"
 
+# raw.githubusercontent.com serve text/plain (irm|iex). GitHub Pages serve octet-stream/html.
 $RawBase = if ($env:KONG_MR_RAW_BASE) {
     $env:KONG_MR_RAW_BASE.TrimEnd("/")
 } else {
-    "https://mr.timdevops.com.br"
+    "https://raw.githubusercontent.com/renatoruis/mr-automation/master"
 }
 
 $PythonUrl = "https://www.python.org/downloads/"

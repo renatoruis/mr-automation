@@ -7,12 +7,12 @@
 #   curl -fsSL https://mr.timdevops.com.br/run.sh | bash
 #
 # Variáveis opcionais:
-#   KONG_MR_RAW_BASE       — URL base (sem barra final); default https://mr.timdevops.com.br
+#   KONG_MR_RAW_BASE       — URL base dos ficheiros; default = raw.githubusercontent.com/.../master
 #   KONG_MR_FORCE_DOWNLOAD — se 1, ignora ./provision.py e baixa da URL
 
 set -euo pipefail
 
-RAW_BASE="${KONG_MR_RAW_BASE:-https://mr.timdevops.com.br}"
+RAW_BASE="${KONG_MR_RAW_BASE:-https://raw.githubusercontent.com/renatoruis/mr-automation/master}"
 RAW_BASE="${RAW_BASE%/}"
 PYTHON_URL="https://www.python.org/downloads/"
 
